@@ -1,5 +1,5 @@
 # args
-LZMA     := 1
+LZMA     := 0
 DIR_DIFF := 1
 MD5      := 0
 MT       := 0
@@ -50,7 +50,6 @@ DEF_FLAGS := \
     -D_IS_NEED_ALL_CompressPlugin=0 \
     -D_IS_NEED_DEFAULT_CompressPlugin=0 \
     -D_CompressPlugin_zlib  \
-    -D_CompressPlugin_bz2  \
     -D_IS_NEED_ALL_ChecksumPlugin=0 \
     -D_IS_NEED_DEFAULT_ChecksumPlugin=0 
 ifeq ($(DIR_DIFF),0)
@@ -82,7 +81,7 @@ else
 endif
 
 
-PATCH_LINK := -lz -lbz2
+PATCH_LINK := -lz
 DIFF_LINK  := $(PATCH_LINK)
 ifeq ($(MT),0)
 else
