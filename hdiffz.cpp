@@ -524,6 +524,7 @@ static int _checkSetCompress(hdiff_TCompress** out_compressPlugin,
     if (*out_decompressPlugin==&zlibDecompressPlugin){
         static TCompressPlugin_zlib _zlibCompressPlugin=zlibCompressPlugin;
         _zlibCompressPlugin.compress_level=(int)compressLevel;
+        _zlibCompressPlugin.windowBits = 12;
         *out_compressPlugin=&_zlibCompressPlugin.base; }
 #   if (_IS_USED_MULTITHREAD)
     //pzlib
