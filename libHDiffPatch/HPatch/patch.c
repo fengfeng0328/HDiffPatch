@@ -27,6 +27,7 @@
 */
 #include "patch.h"
 #include <string.h> //memcpy memset size_t
+//#include <stdio.h>
 #if (_IS_NEED_CACHE_OLD_BY_COVERS)
 #   include <stdlib.h> //qsort
 #endif
@@ -1057,8 +1058,26 @@ hpatch_BOOL _patch_decompress_step(const hpatch_TStreamOutput*  out_newData,
     assert(compressedDiff->read!=0);
     {//head
         if (!read_diffz_head(&diffInfo,&head,compressedDiff)) return _hpatch_FALSE;
-        if ((diffInfo.oldDataSize!=oldData->streamSize)
-            ||(diffInfo.newDataSize!=out_newData->streamSize)) return _hpatch_FALSE;
+        if (diffInfo.oldDataSize != oldData->streamSize) {
+            if (diffInfo.oldDataSize < oldData->streamSize) {
+                // Proceed, could result in a safe failure.
+                ((hpatch_TStreamInput *)oldData)->streamSize = diffInfo.oldDataSize;
+            }
+            else {
+                //printf("oldDataSize: %d; streamSize %d", (int)diffInfo.oldDataSize, (int)oldData->streamSize);
+                return _hpatch_FALSE;
+            }
+        }
+        if (diffInfo.newDataSize != out_newData->streamSize) {
+            if (diffInfo.newDataSize < out_newData->streamSize) {
+                // Proceed, could result in a corrupt file.
+                ((hpatch_TStreamOutput *)out_newData)->streamSize = diffInfo.newDataSize;
+            }
+            else {
+                //printf("newDataSize: %d; streamSize %d", (int)diffInfo.newDataSize, (int)out_newData->streamSize);
+                return _hpatch_FALSE;
+            }
+        }
             
         if ((decompressPlugin==0)&&(diffInfo.compressedCount!=0)) return _hpatch_FALSE;
         if ((decompressPlugin)&&(diffInfo.compressedCount>0))
