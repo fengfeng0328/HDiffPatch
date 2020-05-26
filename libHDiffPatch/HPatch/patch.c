@@ -706,7 +706,11 @@ static hpatch_BOOL patchByClip(const hpatch_TStreamOutput* out_newData,
                                hpatch_TCovers* covers,
                                TStreamCacheClip* code_newDataDiffClip,
                                struct _TBytesRle_load_stream* rle_loader,
-                               TByte* aCache,size_t aCacheSize){
+                               TByte* aCache,
+                               size_t aCacheSize,
+                               int8_t *progress
+                               ){
+    int8_t initial_progress = 0;
     const TUInt newDataSize=out_newData->streamSize;
     const TUInt oldDataSize=oldData->streamSize;
     const TUInt coverCount=covers->leave_cover_count(covers);
@@ -714,6 +718,11 @@ static hpatch_BOOL patchByClip(const hpatch_TStreamOutput* out_newData,
     TUInt i;
     hpatch_BOOL result;
     assert(aCacheSize>=hpatch_kMaxPackedUIntBytes);
+
+    if(progress) {
+        if(*progress < 0 || *progress > 100) *progress = 0;
+        initial_progress = *progress;
+    }
     
     for (i=0; i<coverCount; ++i){
         hpatch_TCover cover;
@@ -733,6 +742,10 @@ static hpatch_BOOL patchByClip(const hpatch_TStreamOutput* out_newData,
         if (!_patch_add_old(out_newData,newPosBack,rle_loader,
                             oldData,cover.oldPos,cover.length,aCache,aCacheSize)) return _hpatch_FALSE;
         newPosBack+=cover.length;
+
+        if(progress) {
+            *progress = (i * (100-initial_progress)) / coverCount + initial_progress;
+        }
     }
     
     if (newPosBack<newDataSize){
@@ -896,7 +909,7 @@ static hpatch_BOOL _patch_stream_with_cache(const hpatch_TStreamOutput* out_newD
     }
     
     return patchByClip(out_newData,oldData,pcovers,&code_newDataDiffClip,
-                       &rle_loader,temp_cache+cacheSize*3,cacheSize);
+                       &rle_loader,temp_cache+cacheSize*3,cacheSize, NULL);
 }
 
 //assert(hpatch_kStreamCacheSize>=hpatch_kMaxPluginTypeLength+1);
@@ -1031,7 +1044,10 @@ hpatch_BOOL _patch_decompress_step(const hpatch_TStreamOutput*  out_newData,
                                    hpatch_TDecompress*          decompressPlugin,
                                    hpatch_TCovers*              cached_covers,
                                    TByte*   temp_cache,TByte*  temp_cache_end,
-                                   hpatch_BOOL is_copy_step,hpatch_BOOL is_add_rle_step){
+                                   hpatch_BOOL is_copy_step,
+                                   hpatch_BOOL is_add_rle_step,
+                                   int8_t *progress
+                                   ){
     TStreamCacheClip              coverClip;
     TStreamCacheClip              code_newDataDiffClip;
     struct _TBytesRle_load_stream   rle_loader;
@@ -1165,7 +1181,7 @@ hpatch_BOOL _patch_decompress_step(const hpatch_TStreamOutput*  out_newData,
             pcovers=&covers.ICovers;  //not need close before return
         }
         result=patchByClip(out_newData,oldData,pcovers,&code_newDataDiffClip,&rle_loader,
-                           temp_cache+(_kCacheDeCount-1)*cacheSize,cacheSize);
+                           temp_cache+(_kCacheDeCount-1)*cacheSize,cacheSize, progress);
         //if ((pcovers!=cached_covers)&&(!pcovers->close(pcovers))) result=_hpatch_FALSE;
     }
 clear:
@@ -1783,7 +1799,7 @@ hpatch_BOOL patch_decompress_with_cache(const hpatch_TStreamOutput* out_newData,
                  decompressPlugin,&temp_cache,&temp_cache_end,&isReadError);
     if (isReadError) return _hpatch_FALSE;
     result=_patch_decompress_step(out_newData,0,oldData,compressedDiff,decompressPlugin,
-                                  covers,temp_cache,temp_cache_end,hpatch_TRUE,hpatch_TRUE);
+                                  covers,temp_cache,temp_cache_end,hpatch_TRUE,hpatch_TRUE, NULL);
     if ((covers!=0)&&(!covers->close(covers))) result=_hpatch_FALSE;
     return result;
 }
@@ -1792,10 +1808,19 @@ hpatch_BOOL patch_decompress(const hpatch_TStreamOutput* out_newData,
                              const hpatch_TStreamInput*  oldData,
                              const hpatch_TStreamInput*  compressedDiff,
                              hpatch_TDecompress* decompressPlugin){
+    return patch_decompress_progress(out_newData, oldData, compressedDiff, decompressPlugin, NULL);
+}
+
+hpatch_BOOL patch_decompress_progress(const hpatch_TStreamOutput* out_newData,
+                             const hpatch_TStreamInput*  oldData,
+                             const hpatch_TStreamInput*  compressedDiff,
+                             hpatch_TDecompress* decompressPlugin,
+                             int8_t *progress
+                             ){
     TByte temp_cache[hpatch_kStreamCacheSize*_kCacheDeCount];
     return _patch_decompress_step(out_newData,0,oldData,compressedDiff,decompressPlugin,
                                   0,temp_cache,temp_cache+sizeof(temp_cache)/sizeof(TByte),
-                                  hpatch_TRUE,hpatch_TRUE);
+                                  hpatch_TRUE, hpatch_TRUE, progress);
 }
 
 hpatch_BOOL patch_decompress_repeat_out(const hpatch_TStreamOutput* repeat_out_newData,
@@ -1806,9 +1831,9 @@ hpatch_BOOL patch_decompress_repeat_out(const hpatch_TStreamOutput* repeat_out_n
     TByte  temp_cache[hpatch_kStreamCacheSize*_kCacheDeCount];
     TByte* temp_cache_end=temp_cache+sizeof(temp_cache)/sizeof(TByte);
     if (!_patch_decompress_step(repeat_out_newData,0,oldData,compressedDiff,decompressPlugin,
-                                0,temp_cache,temp_cache_end,hpatch_TRUE,hpatch_FALSE)) return _hpatch_FALSE;
+                                0,temp_cache,temp_cache_end,hpatch_TRUE,hpatch_FALSE, NULL)) return _hpatch_FALSE;
     return _patch_decompress_step(repeat_out_newData,in_newData,oldData,compressedDiff,decompressPlugin,
-                                  0,temp_cache,temp_cache_end,hpatch_FALSE,hpatch_TRUE);
+                                  0,temp_cache,temp_cache_end,hpatch_FALSE,hpatch_TRUE, NULL);
 }
 
 

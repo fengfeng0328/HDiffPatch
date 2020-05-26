@@ -28,7 +28,9 @@
 
 #ifndef HPatch_patch_h
 #define HPatch_patch_h
+
 #include "patch_types.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -87,6 +89,12 @@ hpatch_BOOL patch_decompress(const hpatch_TStreamOutput* out_newData,
                              const hpatch_TStreamInput*  oldData,
                              const hpatch_TStreamInput*  compressedDiff,
                              hpatch_TDecompress* decompressPlugin);
+
+hpatch_BOOL patch_decompress_progress(const hpatch_TStreamOutput* out_newData,
+                             const hpatch_TStreamInput*  oldData,
+                             const hpatch_TStreamInput*  compressedDiff,
+                             hpatch_TDecompress* decompressPlugin,
+                             int8_t *progress);
 
     
 //ON: for patch_decompress_with_cache(), preparatory load part of oldData into cache,
